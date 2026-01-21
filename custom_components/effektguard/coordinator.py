@@ -52,6 +52,9 @@ from .models.nibe import (
     NibeF750Profile,
     NibeS1155Profile,
 )
+from .models.gree import (
+    GreeGenericProfile,
+)
 from .optimization.adaptive_learning import AdaptiveThermalModel
 from .optimization.decision_engine import (
     OptimizationDecision,
@@ -74,6 +77,7 @@ HEAT_PUMP_MODELS = {
     "nibe_f750": NibeF750Profile,
     "nibe_f2040": NibeF2040Profile,
     "nibe_s1155": NibeS1155Profile,
+    "gree_modbus": GreeGenericProfile,
 }
 
 

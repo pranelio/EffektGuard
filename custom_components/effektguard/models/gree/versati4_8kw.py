@@ -17,10 +17,10 @@ from ..base import HeatPumpProfile, ValidationResult
 from ..registry import HeatPumpModelRegistry
 
 
-@HeatPumpModelRegistry.register("gree_modbus")
+@HeatPumpModelRegistry.register("gree_versati4_8kw")
 @dataclass
-class GreeGenericProfile(HeatPumpProfile):
-    """Generic Gree Heat Pump via Modbus.
+class GreeVersati48kwProfile(HeatPumpProfile):
+    """Gree Versati 4 - 8kW Model.
 
     **Target Market**: Mid-range Gree systems (5-12kW) connected via Modbus
     **Typical Application**: Floor heating, radiators, mixed systems

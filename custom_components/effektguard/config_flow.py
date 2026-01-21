@@ -190,7 +190,7 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "nibe_f750": "NIBE F750 (8kW ASHP - Most Common)",
                             "nibe_f2040": "NIBE F2040 (12-16kW ASHP)",
                             "nibe_s1155": "NIBE S1155 (GSHP)",
-                            "gree_modbus": "Gree Heat Pump (via Modbus)",
+                            "gree_versati4_8kw": "Gree Versati 4 (8kW ASHP)",
                         }
                     ),
                 }

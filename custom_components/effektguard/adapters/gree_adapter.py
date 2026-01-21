@@ -33,6 +33,7 @@ from ..const import (
     CONF_GREE_SUPPLY_TEMP_ENTITY,
     CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY,
     CONF_GREE_UNIT_STATUS_ENTITY,
+    CONF_GREE_WEATHER_DEPEND_ENTITY,
     DEFAULT_INDOOR_TEMP,
 )
 
@@ -48,9 +49,9 @@ class GreeState:
 
     outdoor_temp: float
     indoor_temp: float
-    supply_temp: float  # Flow/supply temperature (Gree equivalent to BT25)
+    supply_temp: float  
     return_temp: float | None
-    target_supply_temp: float  # Target supply temperature (Gree equivalent to S1)
+    target_supply_temp: float  
     is_heating: bool  # True if unit_status == "Heat"
     is_hot_water: bool  # True if DHW charging is active
     timestamp: datetime
@@ -104,6 +105,9 @@ class GreeAdapter:
         self._dhw_temp_entity = config.get(CONF_GREE_DHW_TEMP_ENTITY)  # Optional
         self._compressor_hz_entity = config.get(CONF_GREE_COMPRESSOR_HZ_ENTITY)  # Optional
         self._degree_minutes_entity = config.get(CONF_GREE_DEGREE_MINUTES_ENTITY)  # Optional
+        self._weather_depend_entity = config.get(CONF_GREE_WEATHER_DEPEND_ENTITY)
+        self._last_supply_temp: float | None = None  # Cache for setpoint calculations
+        self._last_write: datetime | None = None  # Rate limiting
 
     async def get_current_state(self) -> GreeState:
         """Read current Gree heat pump state from Modbus entities.
@@ -167,6 +171,9 @@ class GreeAdapter:
             unit_status,
         )
 
+        # Cache supply temp for setpoint calculations
+        self._last_supply_temp = supply_temp
+
         return GreeState(
             outdoor_temp=outdoor_temp,
             indoor_temp=indoor_temp,
@@ -192,6 +199,165 @@ class GreeAdapter:
             User can add a third-party power meter if needed.
         """
         return None
+
+    async def set_supply_temp_target(
+        self, offset: float, min_temp: float = 20.0, max_temp: float = 60.0
+    ) -> bool:
+        """Set target supply temperature via HA entity (offset-based control).
+
+        Unlike NIBE which accepts curve offsets, Gree requires absolute temperatures
+        (1°C increments). This method converts the offset to an absolute target by
+        combining with the current measured supply temperature.
+
+        Decision engine offset range: -10.0 to +10.0°C
+        Applied as: target = round(current_supply_temp + offset)
+
+        Prerequisites:
+        - Weather compensation (weather depend switch) must be disabled.
+          If user has enabled it between calls, we detect and disable it.
+
+        Args:
+            offset: Optimization offset from decision engine (-10 to +10°C)
+            min_temp: Minimum allowed supply temp (default 20°C)
+            max_temp: Maximum allowed supply temp (default 60°C, lower for UFH)
+
+        Returns:
+            True if setpoint was written to Gree, False if skipped/failed
+
+        Note:
+            For UFH systems, caller should set max_temp ~35°C.
+            For radiator systems, max_temp can be 55-60°C.
+            Setup-specific max_temp should come from model profile or config.
+
+        Example:
+            # Current supply is 32°C, decision says +1.5°C for savings
+            success = await adapter.set_supply_temp_target(
+                offset=1.5,
+                min_temp=20,
+                max_temp=35  # UFH system
+            )
+            # Result: Gree gets setpoint of 34°C (round(32 + 1.5))
+        """
+        from datetime import timedelta
+
+        # Rate limiting - don't thrash Gree with constant writes
+        now = dt_util.now()
+        if self._last_write and now - self._last_write < timedelta(minutes=2):
+            _LOGGER.debug("Skipping supply temp write, too soon since last write")
+            return False
+
+        # Current supply temperature (from last read_state call)
+        if not hasattr(self, "_last_supply_temp"):
+            _LOGGER.error("Supply temperature not yet available, skipping setpoint")
+            return False
+
+        current_supply = self._last_supply_temp
+
+        # Calculate absolute target temperature
+        target_temp = current_supply + offset
+        target_temp_int = round(target_temp)  # Gree only accepts 1°C increments
+
+        # Clamp to valid range
+        target_temp_int = max(min_temp, min(target_temp_int, max_temp))
+
+        _LOGGER.debug(
+            "Supply temp calculation: current=%.1f°C, offset=%.2f°C, "
+            "target=%.1f°C → rounded=%d°C (clamped: %d-%d°C)",
+            current_supply,
+            offset,
+            target_temp,
+            target_temp_int,
+            min_temp,
+            max_temp,
+        )
+
+        # Step 1: Check if weather depend is enabled (should never be for setpoint control)
+        weather_depend_entity = self._get_weather_depend_entity()
+        if not weather_depend_entity:
+            _LOGGER.warning(
+                "Weather depend switch entity not configured, cannot safely set supply temp"
+            )
+            return False
+
+        weather_depend_state = self.hass.states.get(weather_depend_entity)
+        if weather_depend_state and weather_depend_state.state == "on":
+            # Weather compensation is enabled - must disable it first
+            _LOGGER.warning(
+                "Weather depend is enabled, disabling to allow setpoint control"
+            )
+            success = await self._disable_weather_depend(weather_depend_entity)
+            if not success:
+                _LOGGER.error("Failed to disable weather depend, aborting setpoint write")
+                return False
+
+        # Step 2: Write target supply temperature to Gree
+        supply_temp_entity = self._get_supply_temp_setpoint_entity()
+        if not supply_temp_entity:
+            _LOGGER.error("Supply temp setpoint entity not configured")
+            return False
+
+        try:
+            await self.hass.services.async_call(
+                "number",
+                "set_value",
+                {
+                    "entity_id": supply_temp_entity,
+                    "value": target_temp_int,
+                },
+                blocking=False,
+            )
+            self._last_write = now
+            self._last_supply_temp = target_temp_int  # Update tracking
+
+            _LOGGER.info(
+                "✓ Applied supply temp to Gree: %.1f°C → %d°C (offset: %.2f°C)",
+                current_supply,
+                target_temp_int,
+                offset,
+            )
+            return True
+
+        except (AttributeError, OSError, ValueError, TypeError) as err:
+            _LOGGER.error("Failed to set Gree supply temp: %s", err)
+            return False
+
+    def _get_weather_depend_entity(self) -> str | None:
+        """Get weather depend (weather compensation) switch entity ID.
+
+        Returns:
+            Entity ID or None if not configured
+        """
+        return self._weather_depend_entity
+
+    def _get_supply_temp_setpoint_entity(self) -> str | None:
+        """Get supply temperature setpoint (target) entity ID.
+
+        Returns:
+            Entity ID or None if not configured
+        """
+        return self._target_supply_temp_entity
+
+    async def _disable_weather_depend(self, entity_id: str) -> bool:
+        """Disable weather depend switch to allow manual supply temp control.
+
+        Args:
+            entity_id: Switch entity for weather compensation
+
+        Returns:
+            True if disabled, False if failed
+        """
+        try:
+            await self.hass.services.async_call(
+                "switch",
+                "turn_off",
+                {"entity_id": entity_id},
+                blocking=False,
+            )
+            _LOGGER.info("✓ Disabled weather depend to allow supply temp setpoint")
+            return True
+        except (AttributeError, OSError) as err:
+            _LOGGER.error("Failed to disable weather depend: %s", err)
+            return False
 
     # Helper methods for entity reading
 

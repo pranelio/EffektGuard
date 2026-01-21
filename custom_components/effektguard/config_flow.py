@@ -27,6 +27,7 @@ from .const import (
     CONF_GREE_SUPPLY_TEMP_ENTITY,
     CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY,
     CONF_GREE_UNIT_STATUS_ENTITY,
+    CONF_GREE_WEATHER_DEPEND_ENTITY,
     CONF_HEAT_PUMP_MODEL,
     CONF_INDOOR_TEMP_METHOD,
     CONF_NIBE_ENTITY,
@@ -210,11 +211,12 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             required_entities = [
                 (CONF_GREE_SUPPLY_TEMP_ENTITY, "Supply temperature"),
                 (CONF_GREE_RETURN_TEMP_ENTITY, "Return temperature"),
-                (CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY, "Target supply temperature"),
+                (CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY, "Target supply temperature (number entity for control)"),
                 (CONF_GREE_OUTDOOR_TEMP_ENTITY, "Outdoor temperature"),
                 (CONF_GREE_INDOOR_TEMP_ENTITY, "Indoor temperature"),
                 (CONF_GREE_UNIT_STATUS_ENTITY, "Unit status (Heat/Cool/Off/DHW)"),
                 (CONF_GREE_DHW_CHARGING_ENTITY, "DHW charging status"),
+                (CONF_GREE_WEATHER_DEPEND_ENTITY, "Weather depend switch"),
             ]
 
             for conf_key, label in required_entities:
@@ -246,6 +248,9 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ]
                 self._data[CONF_GREE_DHW_CHARGING_ENTITY] = user_input[
                     CONF_GREE_DHW_CHARGING_ENTITY
+                ]
+                self._data[CONF_GREE_WEATHER_DEPEND_ENTITY] = user_input[
+                    CONF_GREE_WEATHER_DEPEND_ENTITY
                 ]
                 # Optional entities
                 self._data[CONF_GREE_DHW_TEMP_ENTITY] = user_input.get(
@@ -300,6 +305,14 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_GREE_DHW_CHARGING_ENTITY): selector.EntitySelector(
                         selector.EntitySelectorConfig(
                             domain="binary_sensor",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_GREE_WEATHER_DEPEND_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+
+                            domain="number",
                         )
                     ),
                     vol.Optional(CONF_GREE_DHW_TEMP_ENTITY): selector.EntitySelector(

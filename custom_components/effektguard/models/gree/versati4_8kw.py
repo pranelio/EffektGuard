@@ -50,28 +50,27 @@ class GreeVersati48kwProfile(HeatPumpProfile):
     manufacturer: str = "Gree"
     model_type: str = "Single-Phase ASHP"
 
-    rated_power_kw: tuple[float, float] = (8.0, 8.0)  # Fixed 8kW heat output
+    rated_power_kw: tuple[float, float] = (1.5, 10.0)
     typical_electrical_range_kw: tuple[float, float] = (1.0, 4.0)  # Min to peak power
-    modulation_range: tuple[int, int] = (0, 100)  # 0-100% compressor speed
+    modulation_range: tuple[int, int] = (0, 100)  # 0-100 Hz compressor speed
     modulation_type: str = "inverter"
 
-    typical_cop_range: tuple[float, float] = (1.46, 7.14)  # From actual COP curve at 30°C flow
+    typical_cop_range: tuple[float, float] = (1.46, 8.0)  # From actual COP curve at 30°C flow
     optimal_flow_delta: float = 27.0  # SPF 3.5+ target
     cop_curve: dict[float, float] = field(default_factory=dict)
 
-    supports_aux_heating: bool = False  # Gree Modbus typically doesn't expose this
+    supports_aux_heating: bool = True
     supports_modulation: bool = True 
-    supports_weather_compensation: bool = False
+    supports_weather_compensation: bool = True
     max_flow_temp: float = 55.0
     min_flow_temp: float = 20.0
 
-    # Swedish optimization parameters (from NIBE research, applies universally)
-    # These thresholds are validated across many heat pump types
-    dm_threshold_start: float = -60  # Normal compressor start
-    dm_threshold_extended: float = -240  # Extended runs acceptable
-    dm_threshold_warning: float = -400  # Approaching thermal debt danger
-    dm_threshold_critical: float = -500  # Emergency recovery needed
-    dm_threshold_aux_swedish: float = -1500  # Auxiliary heat delay optimization
+
+    dm_threshold_start: float = -60
+    dm_threshold_extended: float = -240
+    dm_threshold_warning: float = -400
+    dm_threshold_critical: float = -500
+    dm_threshold_aux_swedish: float = -1500
 
     min_runtime_minutes: int = 30
     min_rest_minutes: int = 10

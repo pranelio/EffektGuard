@@ -11,6 +11,7 @@ on:
       - main
       - initial-implementation
       - feature/**
+  workflow_dispatch:
 
 jobs:
   validate:

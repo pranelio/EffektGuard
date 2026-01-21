@@ -17,6 +17,15 @@ from .const import (
     CONF_ENABLE_PEAK_PROTECTION,
     CONF_ENABLE_PRICE_OPTIMIZATION,
     CONF_GESPOT_ENTITY,
+    CONF_GREE_COMPRESSOR_HZ_ENTITY,
+    CONF_GREE_DHW_CHARGING_ENTITY,
+    CONF_GREE_DHW_TEMP_ENTITY,
+    CONF_GREE_INDOOR_TEMP_ENTITY,
+    CONF_GREE_OUTDOOR_TEMP_ENTITY,
+    CONF_GREE_RETURN_TEMP_ENTITY,
+    CONF_GREE_SUPPLY_TEMP_ENTITY,
+    CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY,
+    CONF_GREE_UNIT_STATUS_ENTITY,
     CONF_HEAT_PUMP_MODEL,
     CONF_INDOOR_TEMP_METHOD,
     CONF_NIBE_ENTITY,
@@ -160,7 +169,12 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             self._data[CONF_HEAT_PUMP_MODEL] = user_input[CONF_HEAT_PUMP_MODEL]
-            return await self.async_step_optional()  # Continue to existing optional step
+            # Route to manufacturer-specific configuration
+            model_key = user_input[CONF_HEAT_PUMP_MODEL]
+            if model_key.startswith("gree"):
+                return await self.async_step_gree()
+            else:  # NIBE
+                return await self.async_step_optional()
 
         return self.async_show_form(
             step_id="model",
@@ -175,6 +189,7 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "nibe_f750": "NIBE F750 (8kW ASHP - Most Common)",
                             "nibe_f2040": "NIBE F2040 (12-16kW ASHP)",
                             "nibe_s1155": "NIBE S1155 (GSHP)",
+                            "gree_modbus": "Gree Heat Pump (via Modbus)",
                         }
                     ),
                 }
@@ -182,6 +197,122 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "model_info": "Select your heat pump model for optimized control"
+            },
+        )
+
+    async def async_step_gree(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Configure Gree heat pump Modbus entities."""
+        errors = {}
+
+        if user_input is not None:
+            # Validate all required Gree entities exist
+            required_entities = [
+                (CONF_GREE_SUPPLY_TEMP_ENTITY, "Supply temperature"),
+                (CONF_GREE_RETURN_TEMP_ENTITY, "Return temperature"),
+                (CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY, "Target supply temperature"),
+                (CONF_GREE_OUTDOOR_TEMP_ENTITY, "Outdoor temperature"),
+                (CONF_GREE_INDOOR_TEMP_ENTITY, "Indoor temperature"),
+                (CONF_GREE_UNIT_STATUS_ENTITY, "Unit status (Heat/Cool/Off/DHW)"),
+                (CONF_GREE_DHW_CHARGING_ENTITY, "DHW charging status"),
+            ]
+
+            for conf_key, label in required_entities:
+                entity_id = user_input.get(conf_key)
+                if not entity_id:
+                    errors[conf_key] = "required"
+                elif not self.hass.states.get(entity_id):
+                    errors[conf_key] = "entity_not_found"
+
+            if not errors:
+                # Store Gree entity configuration
+                self._data[CONF_GREE_SUPPLY_TEMP_ENTITY] = user_input[
+                    CONF_GREE_SUPPLY_TEMP_ENTITY
+                ]
+                self._data[CONF_GREE_RETURN_TEMP_ENTITY] = user_input[
+                    CONF_GREE_RETURN_TEMP_ENTITY
+                ]
+                self._data[CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY] = user_input[
+                    CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY
+                ]
+                self._data[CONF_GREE_OUTDOOR_TEMP_ENTITY] = user_input[
+                    CONF_GREE_OUTDOOR_TEMP_ENTITY
+                ]
+                self._data[CONF_GREE_INDOOR_TEMP_ENTITY] = user_input[
+                    CONF_GREE_INDOOR_TEMP_ENTITY
+                ]
+                self._data[CONF_GREE_UNIT_STATUS_ENTITY] = user_input[
+                    CONF_GREE_UNIT_STATUS_ENTITY
+                ]
+                self._data[CONF_GREE_DHW_CHARGING_ENTITY] = user_input[
+                    CONF_GREE_DHW_CHARGING_ENTITY
+                ]
+                # Optional entities
+                self._data[CONF_GREE_DHW_TEMP_ENTITY] = user_input.get(
+                    CONF_GREE_DHW_TEMP_ENTITY
+                )
+                self._data[CONF_GREE_COMPRESSOR_HZ_ENTITY] = user_input.get(
+                    CONF_GREE_COMPRESSOR_HZ_ENTITY
+                )
+
+                # Skip gespot/weather for Gree (will configure later if needed)
+                return await self.async_step_optional()
+
+        return self.async_show_form(
+            step_id="gree",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_GREE_SUPPLY_TEMP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(CONF_GREE_RETURN_TEMP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(CONF_GREE_OUTDOOR_TEMP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(CONF_GREE_INDOOR_TEMP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(CONF_GREE_UNIT_STATUS_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Required(CONF_GREE_DHW_CHARGING_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="binary_sensor",
+                        )
+                    ),
+                    vol.Optional(CONF_GREE_DHW_TEMP_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Optional(CONF_GREE_COMPRESSOR_HZ_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "gree_info": "Select Modbus entities from your Gree integration. Register 117 provides unit status (Heat/Cool/Off/DHW).",
             },
         )
 

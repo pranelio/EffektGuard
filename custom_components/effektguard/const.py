@@ -15,6 +15,18 @@ CONF_DEGREE_MINUTES_ENTITY: Final = "degree_minutes_entity"  # Optional: NIBE de
 CONF_POWER_SENSOR_ENTITY: Final = "power_sensor_entity"  # Optional: Power meter
 CONF_DHW_TEMP_ENTITY: Final = "dhw_temp_entity"  # Optional: DHW temperature sensor (BT7)
 CONF_NIBE_TEMP_LUX_ENTITY: Final = "nibe_temp_lux_entity"  # Optional: switch.temporary_lux_50004
+
+# Gree Modbus configuration keys
+CONF_GREE_SUPPLY_TEMP_ENTITY: Final = "gree_supply_temp_entity"
+CONF_GREE_RETURN_TEMP_ENTITY: Final = "gree_return_temp_entity"
+CONF_GREE_TARGET_SUPPLY_TEMP_ENTITY: Final = "gree_target_supply_temp_entity"
+CONF_GREE_OUTDOOR_TEMP_ENTITY: Final = "gree_outdoor_temp_entity"
+CONF_GREE_INDOOR_TEMP_ENTITY: Final = "gree_indoor_temp_entity"  # Optional: can use HA sensor
+CONF_GREE_UNIT_STATUS_ENTITY: Final = "gree_unit_status_entity"  # Text sensor for Heat/Cool/Off/DHW
+CONF_GREE_DHW_CHARGING_ENTITY: Final = "gree_dhw_charging_entity"  # Binary sensor for DHW active
+CONF_GREE_DHW_TEMP_ENTITY: Final = "gree_dhw_temp_entity"  # Optional: DHW tank temperature
+CONF_GREE_COMPRESSOR_HZ_ENTITY: Final = "gree_compressor_hz_entity"  # Optional: Compressor frequency
+
 CONF_ENABLE_DHW_OPTIMIZATION: Final = "enable_dhw_optimization"  # Enable intelligent DHW scheduling
 CONF_DHW_DEMAND_PERIODS: Final = "dhw_demand_periods"  # High DHW demand periods (JSON list)
 CONF_DHW_TARGET_TEMP: Final = "dhw_target_temp"  # User-configurable DHW target temperature (°C)

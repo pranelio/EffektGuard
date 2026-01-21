@@ -25,6 +25,8 @@ from .const import (
     DHW_BOOST_COOLDOWN_MINUTES,
     SERVICE_RATE_LIMIT_MINUTES,
     CONF_NIBE_TEMP_LUX_ENTITY,
+    CONF_HEAT_PUMP_MODEL,
+    DEFAULT_HEAT_PUMP_MODEL,
     DHW_MIN_TEMP,
     DHW_MAX_TEMP,
 )
@@ -217,14 +219,23 @@ async def _create_coordinator(
     """
     from .adapters.gespot_adapter import GESpotAdapter
     from .adapters.nibe_adapter import NibeAdapter
+    from .adapters.gree_adapter import GreeAdapter
     from .adapters.weather_adapter import WeatherAdapter
     from .optimization.decision_engine import DecisionEngine
     from .optimization.effect_layer import EffectManager
     from .optimization.price_layer import PriceAnalyzer
     from .optimization.thermal_layer import ThermalModel
 
-    # Create data adapters
-    nibe_adapter = NibeAdapter(hass, entry.data)
+    # Create data adapters - select based on heat pump model
+    model_key = entry.data.get(CONF_HEAT_PUMP_MODEL, DEFAULT_HEAT_PUMP_MODEL)
+
+    if model_key.startswith("gree"):
+        # Gree heat pump via Modbus
+        heat_pump_adapter = GreeAdapter(hass, entry.data)
+    else:
+        # NIBE (default)
+        heat_pump_adapter = NibeAdapter(hass, entry.data)
+
     gespot_adapter = GESpotAdapter(hass, entry.data)
 
     # Weather adapter: check options first, fall back to data
@@ -263,7 +274,7 @@ async def _create_coordinator(
     # Create coordinator
     coordinator = EffektGuardCoordinator(
         hass=hass,
-        nibe_adapter=nibe_adapter,
+        heat_pump_adapter=heat_pump_adapter,
         gespot_adapter=gespot_adapter,
         weather_adapter=weather_adapter,
         decision_engine=decision_engine,

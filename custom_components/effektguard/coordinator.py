@@ -93,7 +93,7 @@ class EffektGuardCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        nibe_adapter,
+        heat_pump_adapter,
         gespot_adapter,
         weather_adapter,
         decision_engine,
@@ -109,7 +109,7 @@ class EffektGuardCoordinator(DataUpdateCoordinator):
             # This prevents drift from startup time and ensures updates at :00:10, :05:10, etc.
             update_interval=None,
         )
-        self.nibe = nibe_adapter
+        self.nibe = heat_pump_adapter  # Store as self.nibe for compatibility, but works with any adapter
         self.gespot = gespot_adapter
         self.weather = weather_adapter
         self.engine = decision_engine

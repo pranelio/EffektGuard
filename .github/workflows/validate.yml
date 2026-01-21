@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - initial-implementation
+      - feature/**
   push:
     branches:
       - main
       - initial-implementation
+      - feature/**
 
 jobs:
   validate:

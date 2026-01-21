@@ -26,6 +26,7 @@ CONF_GREE_UNIT_STATUS_ENTITY: Final = "gree_unit_status_entity"  # Text sensor f
 CONF_GREE_DHW_CHARGING_ENTITY: Final = "gree_dhw_charging_entity"  # Binary sensor for DHW active
 CONF_GREE_DHW_TEMP_ENTITY: Final = "gree_dhw_temp_entity"  # Optional: DHW tank temperature
 CONF_GREE_COMPRESSOR_HZ_ENTITY: Final = "gree_compressor_hz_entity"  # Optional: Compressor frequency
+CONF_GREE_DEGREE_MINUTES_ENTITY: Final = "gree_degree_minutes_entity"  # Optional: Thermal debt sensor
 
 CONF_ENABLE_DHW_OPTIMIZATION: Final = "enable_dhw_optimization"  # Enable intelligent DHW scheduling
 CONF_DHW_DEMAND_PERIODS: Final = "dhw_demand_periods"  # High DHW demand periods (JSON list)

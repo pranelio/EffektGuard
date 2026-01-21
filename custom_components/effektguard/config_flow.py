@@ -18,6 +18,7 @@ from .const import (
     CONF_ENABLE_PRICE_OPTIMIZATION,
     CONF_GESPOT_ENTITY,
     CONF_GREE_COMPRESSOR_HZ_ENTITY,
+    CONF_GREE_DEGREE_MINUTES_ENTITY,
     CONF_GREE_DHW_CHARGING_ENTITY,
     CONF_GREE_DHW_TEMP_ENTITY,
     CONF_GREE_INDOOR_TEMP_ENTITY,
@@ -253,6 +254,9 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._data[CONF_GREE_COMPRESSOR_HZ_ENTITY] = user_input.get(
                     CONF_GREE_COMPRESSOR_HZ_ENTITY
                 )
+                self._data[CONF_GREE_DEGREE_MINUTES_ENTITY] = user_input.get(
+                    CONF_GREE_DEGREE_MINUTES_ENTITY
+                )
 
                 # Skip gespot/weather for Gree (will configure later if needed)
                 return await self.async_step_optional()
@@ -304,6 +308,11 @@ class EffektGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Optional(CONF_GREE_COMPRESSOR_HZ_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                        )
+                    ),
+                    vol.Optional(CONF_GREE_DEGREE_MINUTES_ENTITY): selector.EntitySelector(
                         selector.EntitySelectorConfig(
                             domain="sensor",
                         )

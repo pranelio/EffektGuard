@@ -24,6 +24,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_GREE_COMPRESSOR_HZ_ENTITY,
+    CONF_GREE_DEGREE_MINUTES_ENTITY,
     CONF_GREE_DHW_CHARGING_ENTITY,
     CONF_GREE_DHW_TEMP_ENTITY,
     CONF_GREE_INDOOR_TEMP_ENTITY,
@@ -53,6 +54,7 @@ class GreeState:
     is_heating: bool  # True if unit_status == "Heat"
     is_hot_water: bool  # True if DHW charging is active
     timestamp: datetime
+    degree_minutes: float = 0.0  # Thermal debt (default 0 if not available)
     dhw_temp: float | None = None  # Hot water tank temperature - optional
     compressor_hz: int | None = None  # Compressor frequency - optional
     power_kw: float | None = None  # Total power consumption in kW - optional
@@ -101,6 +103,7 @@ class GreeAdapter:
         self._dhw_charging_entity = config.get(CONF_GREE_DHW_CHARGING_ENTITY)
         self._dhw_temp_entity = config.get(CONF_GREE_DHW_TEMP_ENTITY)  # Optional
         self._compressor_hz_entity = config.get(CONF_GREE_COMPRESSOR_HZ_ENTITY)  # Optional
+        self._degree_minutes_entity = config.get(CONF_GREE_DEGREE_MINUTES_ENTITY)  # Optional
 
     async def get_current_state(self) -> GreeState:
         """Read current Gree heat pump state from Modbus entities.
@@ -147,6 +150,12 @@ class GreeAdapter:
             self._compressor_hz_entity, default=None
         )
 
+        # Read optional degree minutes (thermal debt)
+        # Defaults to 0 if not available - safe state (no thermal debt)
+        degree_minutes = await self._read_entity_float(
+            self._degree_minutes_entity, default=0.0
+        )
+
         _LOGGER.debug(
             "Gree state: supply=%.1f°C, target=%.1f°C, outdoor=%.1f°C, "
             "heating=%s, dhw=%s, status=%s",
@@ -167,6 +176,7 @@ class GreeAdapter:
             is_heating=is_heating,
             is_hot_water=is_hot_water,
             timestamp=dt_util.now(),
+            degree_minutes=degree_minutes,
             dhw_temp=dhw_temp,
             compressor_hz=int(compressor_hz) if compressor_hz is not None else None,
         )

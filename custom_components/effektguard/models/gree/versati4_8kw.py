@@ -1,13 +1,12 @@
-"""Generic Gree heat pump profile via Modbus.
+"""Gree Versati 4 8kW heat pump profile via Modbus.
 
-Gree systems via Modbus typically lack detailed specifications,
-so we use conservative, well-tested Swedish NIBE values that work
-across many heat pump types.
+Gree Versati 4 is a mid-range inverter-based air source heat pump.
+COP data extracted from manufacturer specifications at 30°C flow temperature.
 
 Profile is based on:
-- NIBE Swedish research (validated in real conditions)
+- Gree Versati 4 GRS-CQ8.0PdG/NhH3-E specifications
+- Measured COP curve at 30°C flow setpoint
 - Gree Modbus integration capabilities
-- Assumption of well-matched mid-range systems (5-12kW range)
 """
 
 from dataclasses import dataclass, field
@@ -20,51 +19,49 @@ from ..registry import HeatPumpModelRegistry
 @HeatPumpModelRegistry.register("gree_versati4_8kw")
 @dataclass
 class GreeVersati48kwProfile(HeatPumpProfile):
-    """Gree Versati 4 - 8kW Model.
+    """Gree Versati 4 8kW Air Source Heat Pump (ASHP).
 
-    **Target Market**: Mid-range Gree systems (5-12kW) connected via Modbus
-    **Typical Application**: Floor heating, radiators, mixed systems
-    **Electrical**: Varies by model, typically 3-phase 16-20A
+    **Model**: GRS-CQ8.0PdG/NhH3-E (Single-phase)
+    **Target Market**: Residential heating systems with floor heating or radiators
+    **Electrical**: Single-phase 220V or 3-phase available
+    **Installation**: Modbus integration via Home Assistant
 
     **Power Characteristics**:
-    - Assumed range: 5-12kW heat output
-    - Modulation: Depends on inverter type
-    - Typical: 2-4kW electrical for well-matched system
+    - Rated heat output: 8kW (fixed, not variable across models)
+    - Peak electrical input: 4kW at full load
+    - Minimum electrical input: ~1kW at low modulation
+    - Modulation: Inverter-based (0-100% compressor speed)
 
-    **COP Performance** (from Swedish NIBE research, applied conservatively):
-    - Best: 4.0 at 7°C outdoor
-    - Good: 3.5 at 0°C
-    - Acceptable: 2.5 at -10°C
-    - Survival: 1.8 at -25°C
+    **COP Performance** (at 30°C flow temperature setpoint):
+    - Peak: 7.14 COP at 15°C outdoor (best case)
+    - Good: 6.04 COP at 7°C outdoor (standard test)
+    - Moderate: 3.6 COP at 0°C outdoor
+    - Cold: 2.91 COP at -10°C outdoor
+    - Extreme: 1.46 COP at -30°C outdoor
 
-    **Note**: Since Gree does not expose detailed specifications via Modbus,
-    we use validated Swedish NIBE thresholds that work across most heat pump types.
-    This conservative approach ensures safety and prevents thermal debt accumulation.
-
-    **Source**: Swedish NIBE forum validation, Gree Modbus integration patterns
+    **Thermal Debt Protection**: Uses Swedish-validated degree-minutes thresholds
+    (validated across multiple heat pump types for safety)
+    
+    **Source**: Gree Versati 4 specifications, 30°C flow reference COP curve
     """
 
     # Identity
-    model_name: str = "Generic Gree"
+    model_name: str = "Versati IV 8kW"
     manufacturer: str = "Gree"
-    model_type: str = "Modbus ASHP/GSHP"
+    model_type: str = "Single-Phase ASHP"
 
-    # Power characteristics (conservative mid-range estimate)
-    rated_power_kw: tuple[float, float] = (5.0, 12.0)  # Heat output range
-    typical_electrical_range_kw: tuple[float, float] = (1.5, 5.0)  # Estimated
-    modulation_range: tuple[int, int] = (0, 100)  # % (inverter likely)
+    rated_power_kw: tuple[float, float] = (8.0, 8.0)  # Fixed 8kW heat output
+    typical_electrical_range_kw: tuple[float, float] = (1.0, 4.0)  # Min to peak power
+    modulation_range: tuple[int, int] = (0, 100)  # 0-100% compressor speed
     modulation_type: str = "inverter"
 
-    # Efficiency - Conservative from Swedish NIBE research
-    # Applied to Gree since detailed specs unavailable via Modbus
-    typical_cop_range: tuple[float, float] = (1.8, 4.0)
+    typical_cop_range: tuple[float, float] = (1.46, 7.14)  # From actual COP curve at 30°C flow
     optimal_flow_delta: float = 27.0  # SPF 3.5+ target
     cop_curve: dict[float, float] = field(default_factory=dict)
 
-    # System capabilities (assumed from Modbus integration)
     supports_aux_heating: bool = False  # Gree Modbus typically doesn't expose this
-    supports_modulation: bool = True  # Most Gree systems have inverters
-    supports_weather_compensation: bool = False  # Not via standard Modbus
+    supports_modulation: bool = True 
+    supports_weather_compensation: bool = False
     max_flow_temp: float = 55.0
     min_flow_temp: float = 20.0
 
@@ -76,28 +73,24 @@ class GreeVersati48kwProfile(HeatPumpProfile):
     dm_threshold_critical: float = -500  # Emergency recovery needed
     dm_threshold_aux_swedish: float = -1500  # Auxiliary heat delay optimization
 
-    # Cycling protection (standard across heat pump types)
     min_runtime_minutes: int = 30
     min_rest_minutes: int = 10
 
-    # Gree via Modbus doesn't expose exhaust airflow optimization
     supports_exhaust_airflow: bool = False
     standard_airflow_m3h: float = 0.0
     enhanced_airflow_m3h: float = 0.0
 
     def __post_init__(self):
         """Initialize COP curve after dataclass creation."""
-        # Conservative COP curve from Swedish NIBE research
-        # Applied to Gree since manufacturer specs unavailable via Modbus
         self.cop_curve = {
-            -30: 1.8,  # Extreme cold - survival mode
-            -20: 2.0,  # Deep freeze (Kiruna)
-            -10: 2.5,  # Cold (Stockholm winter)
-            0: 3.5,  # Moderate cold (Malmö/Gothenburg average)
-            5: 3.8,  # Mild cold
-            7: 4.0,  # Optimal mild (Swedish standard test)
-            10: 3.9,  # Just above freezing
-            15: 3.5,  # Spring/Fall
+            -30: 1.46,  
+            -20: 2.07,  
+            -10: 2.91,  
+            0: 3.6, 
+            5: 5.8,
+            7: 6.04,
+            10: 6.28,
+            15: 7.14,
         }
 
     def calculate_optimal_flow_temp(
